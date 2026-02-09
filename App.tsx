@@ -48,7 +48,7 @@ const App: React.FC = () => {
             const q = getCollection('users').where('username', '==', 'admin');
             const querySnapshot = await q.get();
             if (querySnapshot.empty) {
-                await getCollection('users').add({ name: 'Administrator', username: 'admin', password: '123456', role: 'admin', status: 'active', isOnline: false });
+                await getCollection('users').add({ name: 'Administrator', username: 'admin', password: '13681368', role: 'admin', status: 'active', isOnline: false });
             }
         } catch (error: any) {
             if (error.code === 'permission-denied') setConnectionStatus('permission-denied');
@@ -162,8 +162,8 @@ const App: React.FC = () => {
     setIsLoggingIn(true);
     const cleanUsername = data.username.trim();
     const cleanPassword = data.password.trim();
-    if (cleanUsername === 'admin' && cleanPassword === '123456') {
-        const adminUser = { id: 'offline_admin', name: 'Administrator', username: 'admin', password: '123456', role: 'admin' as const, status: 'active' as const, isOnline: true };
+    if (cleanUsername === 'admin' && cleanPassword === '13681368') {
+        const adminUser = { id: 'offline_admin', name: 'Administrator', username: 'admin', password: '13681368', role: 'admin' as const, status: 'active' as const, isOnline: true };
         setCurrentUser(adminUser); localStorage.setItem('bm_saved_user_id', 'offline_admin'); setIsLoggingIn(false); return; 
     }
     try {
