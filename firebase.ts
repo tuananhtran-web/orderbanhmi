@@ -3,6 +3,7 @@
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
 import 'firebase/compat/storage'; // Add storage import
+import 'firebase/compat/auth';
 
 // --- CẤU HÌNH FIREBASE ---
 const firebaseConfig = {
@@ -26,6 +27,7 @@ const app = firebase.initializeApp(firebaseConfig);
  */
 const db = firebase.firestore();
 const storage = firebase.storage(); // Export storage
+const auth = firebase.auth();
 
 // --- CẤU HÌNH CLOUDINARY ---
 const CLOUDINARY_CLOUD_NAME = "deuqalvq5"; 
@@ -67,4 +69,23 @@ export const DB_PREFIX = 'bm_';
 // Helper để lấy tên collection có prefix
 export const getCollection = (name: string) => db.collection(`${DB_PREFIX}${name}`);
 
-export { db, storage, firebase };
+export const ensureFirebaseAuth = async () => {
+  if (auth.currentUser) return auth.currentUser;
+  return new Promise((resolve, reject) => {
+    const unsub = auth.onAuthStateChanged(user => {
+      if (user) {
+        console.log("Firebase Anonymous Auth OK:", user.uid);
+        unsub();
+        resolve(user);
+      }
+    });
+    console.log("Thử đăng nhập ẩn (Anonymous)...");
+    auth.signInAnonymously().catch(err => {
+      unsub();
+      console.error("Anonymous Auth thất bại:", err?.code || err);
+      reject(err);
+    });
+  });
+};
+
+export { db, storage, firebase, auth };

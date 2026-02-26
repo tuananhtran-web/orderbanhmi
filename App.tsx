@@ -8,7 +8,7 @@ import AdminLayout from './components/admin/AdminLayout';
 import Toast from './components/Toast';
 import { LoginFormData, User, Order, CartItem, CheckInRecord, MenuItem, OrderSource, Shift, Notification } from './types';
 import { Loader2, Wifi, WifiOff, AlertTriangle, X } from 'lucide-react';
-import { db, uploadFileToFirebase, getCollection } from './firebase';
+import { db, uploadFileToFirebase, getCollection, auth, ensureFirebaseAuth } from './firebase';
 
 const App: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -27,10 +27,30 @@ const App: React.FC = () => {
   const [isLoggingIn, setIsLoggingIn] = useState(true); 
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error' | 'permission-denied'>('connecting');
   const [showConnectionStatus, setShowConnectionStatus] = useState(true);
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info' | 'order'} | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const heartbeatIntervalRef = useRef<number | null>(null);
 
+  useEffect(() => {
+    auth.onAuthStateChanged((user) => {
+      if (user) console.log("Đã login:", user.uid);
+      else console.log("Chưa login");
+    });
+    ensureFirebaseAuth()
+      .then(() => setIsAuthReady(true))
+      .catch((err) => {
+        console.error("ensureFirebaseAuth thất bại:", err?.code || err);
+        setIsAuthReady(false);
+        setIsLoggingIn(false);
+        setConnectionStatus('error');
+      });
+  }, []);
+
+  useEffect(() => {
+    console.log("AuthReady:", isAuthReady, auth.currentUser ? auth.currentUser.uid : null);
+  }, [isAuthReady]);
   useEffect(() => {
     audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
   }, []);
@@ -43,6 +63,7 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
+    if (!isAuthReady) return;
     const checkAndCreateAdmin = async () => {
         try {
             const q = getCollection('users').where('username', '==', 'admin');
@@ -57,6 +78,7 @@ const App: React.FC = () => {
 
     const heartbeat = async () => {
         try {
+            if (!auth.currentUser) return;
             // Write system status
             const statusRef = getCollection('_system').doc('connection_status');
             await statusRef.set({ 
@@ -77,16 +99,23 @@ const App: React.FC = () => {
         } catch (e: any) {
             if (e.code === 'permission-denied') setConnectionStatus('permission-denied');
             console.error("Firebase Connection Error:", e);
+            if (heartbeatIntervalRef.current) {
+              clearInterval(heartbeatIntervalRef.current);
+              heartbeatIntervalRef.current = null;
+              console.log("Đã dừng heartbeat do thiếu quyền Firestore");
+            }
         }
     };
 
     checkAndCreateAdmin();
     const interval = setInterval(heartbeat, 15000);
+    heartbeatIntervalRef.current = interval as unknown as number;
     heartbeat();
     return () => clearInterval(interval);
-  }, []);
+  }, [isAuthReady]);
 
   useEffect(() => {
+    if (!isAuthReady) return;
     const handleError = (error: any) => {
         if (error.code === 'permission-denied') setConnectionStatus('permission-denied');
         else setConnectionStatus('error');
@@ -156,7 +185,7 @@ const App: React.FC = () => {
     return () => {
         try { unsubUsers(); unsubMenu(); unsubOrders(); unsubShifts(); unsubCheckIns(); unsubNotifs(); } catch(e) {}
     };
-  }, [currentUser?.id]);
+  }, [isAuthReady, currentUser?.id]);
 
   const handleLogin = async (data: LoginFormData) => {
     setIsLoggingIn(true);
